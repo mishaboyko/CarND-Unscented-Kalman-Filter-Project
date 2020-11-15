@@ -3,6 +3,7 @@
 
 #include "Eigen/Dense"
 #include "measurement_package.h"
+#include <iostream>
 
 class UKF {
  public:
@@ -15,6 +16,14 @@ class UKF {
    * Destructor
    */
   virtual ~UKF();
+
+  void GenerateSigmaPoints();
+
+  void AugmentedSigmaPoints();
+
+  void PredictSigmaPoints();
+
+  void PredictMeanAndCovariance();
 
   /**
    * ProcessMeasurement
@@ -59,6 +68,12 @@ class UKF {
 
   // predicted sigma points matrix
   Eigen::MatrixXd Xsig_pred_;
+
+  // augmented sigma-point matrix
+  Eigen::MatrixXd Xsig_aug_;
+
+  // sigma point matrix
+  Eigen::MatrixXd Xsig_;
 
   // time when the state is true, in us
   long long time_us_;
