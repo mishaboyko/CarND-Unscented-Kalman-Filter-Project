@@ -25,6 +25,7 @@ class UKF {
 
   void PredictMeanAndCovariance();
 
+  void PredictRadarMeasurement();
   /**
    * ProcessMeasurement
    * @param meas_package The latest measurement data of either radar or laser
@@ -75,6 +76,16 @@ class UKF {
   // sigma point matrix
   Eigen::MatrixXd Xsig_;
 
+  // create matrix for sigma points in measurement space
+  Eigen::MatrixXd Zsig;
+
+  // mean predicted measurement
+  Eigen::VectorXd z_pred;
+
+  // measurement covariance matrix S
+  Eigen::MatrixXd S;
+
+
   // time when the state is true, in us
   long long time_us_;
 
@@ -89,6 +100,9 @@ class UKF {
 
   // Laser measurement noise standard deviation position2 in m
   double std_laspy_;
+
+  // Radar measurement dimention
+  int n_z_;
 
   // Radar measurement noise standard deviation radius in m
   double std_radr_;
