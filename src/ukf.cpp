@@ -22,8 +22,8 @@ UKF::UKF() {
   // set augmented dimension
   n_aug_ = 7;
 
-  // define spreading parameter
-  lambda_ = 3 - n_x_;
+  // define spreading parameter for augmented sigma points
+  double lambda_ = 3 - n_aug_;
 
   // initial state vector
   x_ = VectorXd(n_x_);
@@ -63,8 +63,6 @@ UKF::UKF() {
           0,   0,   0,   1,   0,
           0,   0,   0,   0,   1;
   */
-  // declare sigma point matrix
-  Xsig_ = MatrixXd(n_x_, 2 * n_x_ + 1);
 
   Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
 
@@ -100,8 +98,7 @@ UKF::UKF() {
   // Radar measurement noise standard deviation radius change in m/s
   std_radrd_ = 0.3;
 
-
-  // create matrix for sigma points in measurement space
+  // matrix for sigma points in measurement space
   Zsig = MatrixXd(n_z_, 2 * n_aug_ + 1);
 
   // mean predicted measurement
@@ -109,6 +106,8 @@ UKF::UKF() {
 
   // measurement covariance matrix S
   S = MatrixXd(n_z_,n_z_);
+
+  weights_ = VectorXd(2*n_aug_+1);
 
   /**
    * End DO NOT MODIFY section for measurement noise values
@@ -119,8 +118,8 @@ UKF::UKF() {
    * Hint: one or more values initialized above might be wildly off...
    */
 
-  GenerateSigmaPoints();
-  AugmentedSigmaPoints();
+  GenerateAugmentedSigmaPoints();
+  SetWeights();
   PredictSigmaPoints();
   PredictMeanAndCovariance();
   PredictRadarMeasurement();
@@ -138,27 +137,17 @@ UKF::UKF() {
 
 UKF::~UKF() {}
 
-void UKF::GenerateSigmaPoints() {
+void UKF::SetWeights(){
+  double weight_0 = lambda_/(lambda_+n_aug_);
+  double weight = 0.5/(lambda_+n_aug_);
+  weights_(0) = weight_0;
 
-  // calculate square root of P
-  Eigen::MatrixXd A = P_.llt().matrixL();
-
-  // set first column of sigma point matrix
-  Xsig_.col(0) = x_;
-
-  // set remaining sigma points
-  for (int i = 0; i < n_x_; ++i) {
-    Xsig_.col(i+1)     = x_ + sqrt(lambda_ + n_x_) * A.col(i);
-    Xsig_.col(i+1+n_x_) = x_ - sqrt(lambda_ + n_x_) * A.col(i);
+  for (int i=1; i<2*n_aug_+1; ++i) {
+    weights_(i) = weight;
   }
-  // print result
-  std::cout << "Xsig_ = " << std::endl << Xsig_ << std::endl;
-
 }
 
-void UKF::AugmentedSigmaPoints(){
-  // define spreading parameter
-  double lambda = 3 - n_aug_;
+void UKF::GenerateAugmentedSigmaPoints(){
 
   // create augmented mean vector
   VectorXd x_aug = VectorXd(n_aug_);
@@ -166,7 +155,6 @@ void UKF::AugmentedSigmaPoints(){
   // create augmented state covariance
   MatrixXd P_aug = MatrixXd(n_aug_, n_aug_);
 
-  // TODO: Optimize it by re-using GenerateSigmaPoints()
   // create augmented mean state
   x_aug.head(5) = x_;
   x_aug(5) = 0;
@@ -175,8 +163,8 @@ void UKF::AugmentedSigmaPoints(){
   // create augmented covariance matrix
   P_aug.fill(0.0);
   P_aug.topLeftCorner(5,5) = P_;
-  P_aug(5,5) = std_a_*std_a_;
-  P_aug(6,6) = std_yawdd_*std_yawdd_;
+  P_aug(5,5) = std_a_ * std_a_;
+  P_aug(6,6) = std_yawdd_ * std_yawdd_;
 
   // create square root matrix
   MatrixXd L = P_aug.llt().matrixL();
@@ -184,8 +172,8 @@ void UKF::AugmentedSigmaPoints(){
   // create augmented sigma points
   Xsig_aug_.col(0)  = x_aug;
   for (int i = 0; i< n_aug_; ++i) {
-    Xsig_aug_.col(i+1)       = x_aug + sqrt(lambda+n_aug_) * L.col(i);
-    Xsig_aug_.col(i+1+n_aug_) = x_aug - sqrt(lambda+n_aug_) * L.col(i);
+    Xsig_aug_.col(i+1)  = x_aug + sqrt(lambda_ + n_aug_) * L.col(i);
+    Xsig_aug_.col(i+1 + n_aug_) = x_aug - sqrt(lambda_ + n_aug_) * L.col(i);
   }
 
   std::cout << "Xsig_aug_ = " << std::endl << Xsig_aug_ << std::endl;
@@ -193,9 +181,11 @@ void UKF::AugmentedSigmaPoints(){
 }
 
 void UKF::PredictSigmaPoints() {
+
+  // TODO: Calculate delta_t from comparing 2 measurements
   double delta_t = 0.1; // time diff in sec
 
-   for (int i = 0; i< 2*n_aug_+1; ++i) {
+   for (int i = 0; i< 2 * n_aug_+1; ++i) {
     // extract values for better readability
     double p_x = Xsig_aug_(0,i);
     double p_y = Xsig_aug_(1,i);
@@ -241,24 +231,11 @@ void UKF::PredictSigmaPoints() {
 }
 
 void UKF::PredictMeanAndCovariance() {
-  // define spreading parameter
-  double lambda = 3 - n_aug_;
-
-  // create vector for weights
-  VectorXd weights = VectorXd(2*n_aug_+1);
-
-  // set weights
-  double weight_0 = lambda/(lambda+n_aug_);
-  weights(0) = weight_0;
-  for (int i=1; i<2*n_aug_+1; ++i) {  // 2n+1 weights
-    double weight = 0.5/(n_aug_+lambda);
-    weights(i) = weight;
-  }
 
   // predicted state mean
   x_.fill(0.0);
   for (int i = 0; i < 2 * n_aug_ + 1; ++i) {  // iterate over sigma points
-    x_ = x_ + weights(i) * Xsig_pred_.col(i);
+    x_ = x_ + weights_(i) * Xsig_pred_.col(i);
   }
 
   // predicted state covariance matrix
@@ -270,7 +247,7 @@ void UKF::PredictMeanAndCovariance() {
     while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
     while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
 
-    P_ = P_ + weights(i) * x_diff * x_diff.transpose();
+    P_ = P_ + weights_(i) * x_diff * x_diff.transpose();
   }
 
   std::cout << "Predicted state" << std::endl;
@@ -280,20 +257,6 @@ void UKF::PredictMeanAndCovariance() {
 }
 
 void UKF::PredictRadarMeasurement(){
-
-  // define spreading parameter
-  double lambda = 3 - n_aug_;
-
-  // set vector for weights
-  VectorXd weights = VectorXd(2*n_aug_+1);
-  double weight_0 = lambda/(lambda+n_aug_);
-  double weight = 0.5/(lambda+n_aug_);
-  weights(0) = weight_0;
-
-  for (int i=1; i<2*n_aug_+1; ++i) {
-    weights(i) = weight;
-  }
-
 
   // transform sigma points into measurement space
   for (int i = 0; i < 2 * n_aug_ + 1; ++i) {  // 2n+1 simga points
@@ -315,7 +278,7 @@ void UKF::PredictRadarMeasurement(){
   // mean predicted measurement
   z_pred.fill(0.0);
   for (int i=0; i < 2*n_aug_+1; ++i) {
-    z_pred = z_pred + weights(i) * Zsig.col(i);
+    z_pred = z_pred + weights_(i) * Zsig.col(i);
   }
 
   // innovation covariance matrix S
@@ -328,7 +291,7 @@ void UKF::PredictRadarMeasurement(){
     while (z_diff(1)> M_PI) z_diff(1)-=2.*M_PI;
     while (z_diff(1)<-M_PI) z_diff(1)+=2.*M_PI;
 
-    S = S + weights(i) * z_diff * z_diff.transpose();
+    S = S + weights_(i) * z_diff * z_diff.transpose();
   }
 
   // add measurement noise covariance matrix
@@ -459,20 +422,6 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 }
 
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
-
-  // define spreading parameter
-  double lambda = 3 - n_aug_;
-
-  // set vector for weights
-  VectorXd weights = VectorXd(2*n_aug_+1);
-  double weight_0 = lambda/(lambda+n_aug_);
-  double weight = 0.5/(lambda+n_aug_);
-  weights(0) = weight_0;
-
-  for (int i=1; i<2*n_aug_+1; ++i) {
-    weights(i) = weight;
-  }
-
   // create matrix for cross correlation Tc
   MatrixXd Tc = MatrixXd(n_x_, n_z_);
 
@@ -491,7 +440,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
     while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
 
-    Tc = Tc + weights(i) * x_diff * z_diff.transpose();
+    Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
   }
 
   // Kalman gain K;
