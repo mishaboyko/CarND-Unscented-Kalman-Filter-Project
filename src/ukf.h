@@ -41,7 +41,7 @@ class UKF {
 
     void SetWeights();
 
-    void PredictSigmaPoints();
+    void PredictSigmaPoints(double delta_t);
 
     void PredictMeanAndCovariance();
 
@@ -121,6 +121,9 @@ class UKF {
 
     // Sigma point spreading parameter
     double lambda_;
+
+    long long previous_timestamp_;
+
 };
 
 #endif  // UKF_H

@@ -23,7 +23,7 @@ UKF::UKF() {
   n_aug_ = 7;
 
   // define spreading parameter for augmented sigma points
-  double lambda_ = 3 - n_aug_;
+  lambda_ = 3 - n_aug_;
 
   // initial state vector
   x_ = VectorXd(n_x_);
@@ -34,15 +34,14 @@ UKF::UKF() {
    * TODO: the CTRV velocity is tangential to the circle along which the bicycle travels.
    * TODO: Therefore, you cannot directly use the radar velocity measurement to initialize the state vector.
    */
+  //x_ <<  0, 0, 0, 0, 0;
   /*
-  x_ <<  0, 0, 0, 0, 0;
-  */
   x_ <<  5.7441,
          1.3800,
          2.2049,
          0.5015,
          0.3528;
-
+*/
   // initial covariance matrix
   // The identity matrix is a good place to start, since the non-diagonal values represent the covariances between variables, the P matrix is symmetrical.
   // One can also see that P starts to converge to small values relatively quickly.
@@ -51,18 +50,19 @@ UKF::UKF() {
   // TODO: For example, in the project, we assume the standard deviation of the lidar x and y measurements is 0.15.
   // TODO: If we initialized p_x with a lidar measurement, the initial variance or uncertainty in p_x would probably be less than 1.
   P_ = MatrixXd(n_x_, n_x_);
+  /*
   P_ <<    0.0043,   -0.0013,    0.0030,   -0.0022,   -0.0020,
           -0.0013,    0.0077,    0.0011,    0.0071,    0.0060,
            0.0030,    0.0011,    0.0054,    0.0007,    0.0008,
           -0.0022,    0.0071,    0.0007,    0.0098,    0.0100,
           -0.0020,    0.0060,    0.0008,    0.0100,    0.0123;
-  /*
+  */
+
   P_ <<   1,   0,   0,   0,   0,
           0,   1,   0,   0,   0,
           0,   0,   1,   0,   0,
           0,   0,   0,   1,   0,
           0,   0,   0,   0,   1;
-  */
 
   Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
 
@@ -70,7 +70,7 @@ UKF::UKF() {
   Xsig_aug_ = MatrixXd(n_aug_, 2 * n_aug_ + 1);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 0.2;
+  std_a_ = 0.8;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
   std_yawdd_ = 0.2;
@@ -112,14 +112,8 @@ UKF::UKF() {
   /**
    * End DO NOT MODIFY section for measurement noise values
    */
-
-  /**
-   * TODO: Complete the initialization. See ukf.h for other member properties.
-   * Hint: one or more values initialized above might be wildly off...
-   */
-
+  /*
   GenerateAugmentedSigmaPoints();
-  SetWeights();
   PredictSigmaPoints();
   PredictMeanAndCovariance();
   PredictRadarMeasurement();
@@ -133,6 +127,7 @@ UKF::UKF() {
      0.2187,   // phi in rad
      2.0062;   // rho_dot in m/s
   UpdateRadar(mp);
+  */
 }
 
 UKF::~UKF() {}
@@ -180,10 +175,10 @@ void UKF::GenerateAugmentedSigmaPoints(){
 
 }
 
-void UKF::PredictSigmaPoints() {
+void UKF::PredictSigmaPoints(double delta_t) {
 
   // TODO: Calculate delta_t from comparing 2 measurements
-  double delta_t = 0.1; // time diff in sec
+  //double delta_t = 0.1; // time diff in sec
 
    for (int i = 0; i< 2 * n_aug_+1; ++i) {
     // extract values for better readability
@@ -309,35 +304,25 @@ void UKF::PredictRadarMeasurement(){
 
 
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
-  /**
-   * TODO: Complete this function! Make sure you switch between lidar and radar
-   * measurements.
-   */
-
-  /*** 
-   * TODO: Copy from EKF. Change it to UKF.
    // Initialization
-   
+
   if (!is_initialized_) {
+    SetWeights();
 
-    ekf_.Init(P_init_, F_init_laser_, H_laser_, R_laser_, R_radar_);
-
-    if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
+    if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
       // Convert radar from polar to cartesian coordinates and initialize state.
       float x, y, v_x, v_y;
       
-      x = measurement_pack.raw_measurements_[0] * cos(measurement_pack.raw_measurements_[1]);
-      y = measurement_pack.raw_measurements_[0] * sin(measurement_pack.raw_measurements_[1]);
-      v_x = measurement_pack.raw_measurements_[2] * cos(measurement_pack.raw_measurements_[1]);
-      v_y = measurement_pack.raw_measurements_[2] * sin(measurement_pack.raw_measurements_[1]);
+      x = meas_package.raw_measurements_[0] * cos(meas_package.raw_measurements_[1]);
+      y = meas_package.raw_measurements_[0] * sin(meas_package.raw_measurements_[1]);
 
-      ekf_.x_ << x, y, v_x, v_y;
+      x_ << x, y, 0, 0, 0;
     }
-    else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
-      ekf_.x_ << measurement_pack.raw_measurements_[0], measurement_pack.raw_measurements_[1], 0, 0;
+    else if (meas_package.sensor_type_ == MeasurementPackage::LASER) {
+      x_ << meas_package.raw_measurements_[0], meas_package.raw_measurements_[1], 0, 0, 0;
     }
 
-    previous_timestamp_ = measurement_pack.timestamp_;
+    previous_timestamp_ = meas_package.timestamp_;
 
     // done initializing, no need to predict or update
     is_initialized_ = true;
@@ -345,40 +330,24 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   }
 
   // compute the time elapsed between the current and previous measurements
-  float dt = (measurement_pack.timestamp_ - previous_timestamp_) / 1000000.0;
-  float dt_2 = dt * dt;
-  float dt_3 = dt_2 * dt;
-  float dt_4 = dt_3 * dt;
+  double delta_t = (meas_package.timestamp_ - previous_timestamp_) / 1000000.0;
 
-  previous_timestamp_ = measurement_pack.timestamp_;
-
-  // Update the state transition matrix F according to the new elapsed time.
-  ekf_.F_(0, 2) = dt;
-  ekf_.F_(1, 3) = dt;
-
-  // Update the process noise covariance matrix.
-  ekf_.Q_ <<  dt_4/4*noise_ax,  0,                dt_3/2*noise_ax,  0,
-              0,                dt_4/4*noise_ay,  0,                dt_3/2*noise_ay,
-              dt_3/2*noise_ax,  0,                dt_2*noise_ax,    0,
-              0,                dt_3/2*noise_ay,  0,                dt_2*noise_ay;
+  previous_timestamp_ = meas_package.timestamp_;
 
   // Prediction
-  ekf_.Predict();
+  Prediction(delta_t);
 
   // Update
 
-  if (measurement_pack.sensor_type_ == MeasurementPackage::RADAR) {
+  if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+    PredictRadarMeasurement();
     // Radar updates
-    ekf_.UpdateRadar(measurement_pack.raw_measurements_);
+    UpdateRadar(meas_package);
   } else {
     // Laser updates
-    ekf_.UpdateLaser(measurement_pack.raw_measurements_);
+    UpdateLidar(meas_package);
   }
 
-  // print the output
-  cout << "\nx_:\n" << "(" << ekf_.x_.format(CleanVector) << " )" << endl;
-  cout << "\nP_:\n" << ekf_.P_.format(CleanMatrix) << endl;
-  */
 }
 
 void UKF::Prediction(double delta_t) {
@@ -387,11 +356,9 @@ void UKF::Prediction(double delta_t) {
    * Modify the state vector, x_. Predict sigma points, the state,
    * and the state covariance matrix.
    */
-  /***
-  * TODO: Copy from EKF. Change it to UKF.
-  x_ = F_ * x_;
-  P_ = F_ * P_ * F_.transpose() + Q_;
-  */
+  GenerateAugmentedSigmaPoints();
+  PredictSigmaPoints(delta_t);
+  PredictMeanAndCovariance();
 }
 
 void UKF::UpdateLidar(MeasurementPackage meas_package) {
