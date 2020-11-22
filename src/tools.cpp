@@ -20,7 +20,6 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
       std::cout << "Invalid matrices of estimation or the ground truth data" << std::endl;
       exit(1);
    }
-
    // sum up all square residuals
 
    for(unsigned int i = 0; i < estimations.size(); ++i){
@@ -40,28 +39,4 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
 
    return rmse;
 
-}
-
-VectorXd Tools::CartesianToPolar(const VectorXd& x_state) {
-   // Range (rho). Radial distance from origin
-   float ro;
-   // Bearing. Angle between rho and x-axis
-   float theta;
-   // radial velocity (moving towards or away from the sensor). Change of rho (range rate)
-   float ro_dot;
-
-   // recover state parameters
-   float px = x_state(0);
-   float py = x_state(1);
-   float vx = x_state(2);
-   float vy = x_state(3);
-
-   ro = sqrt(px*px+py*py);
-   theta = atan2(py, px);
-   ro_dot = (px*vx + py*vy)/ro;
-
-   Eigen::VectorXd polar_space = VectorXd(3);
-   polar_space << ro, theta, ro_dot;
-
-   return polar_space;
 }

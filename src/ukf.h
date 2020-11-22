@@ -3,7 +3,9 @@
 
 #include "Eigen/Dense"
 #include "measurement_package.h"
-#include <iostream>
+#include "ObjectState.h"
+#include "RadarProcessor.h"
+#include "LidarProcessor.h"
 
 class UKF {
   public:
@@ -30,12 +32,7 @@ class UKF {
      */
     void Prediction(double delta_t);
 
-    // state vector: [pos1 pos2 vel_abs yaw_angle yaw_rate] in SI units and rad
-    Eigen::VectorXd x_;
-
-    // state covariance matrix
-    Eigen::MatrixXd P_;
-
+    objectState object_state;
   private:
     void GenerateAugmentedSigmaPoints();
 
@@ -45,19 +42,8 @@ class UKF {
 
     void PredictMeanAndCovariance();
 
-    void PredictRadarMeasurement();
-
-    /**
-     * Updates the state and the state covariance matrix using a laser measurement
-     * @param meas_package The measurement at k+1
-     */
-    void UpdateLidar(MeasurementPackage meas_package);
-
-    /**
-     * Updates the state and the state covariance matrix using a radar measurement
-     * @param meas_package The measurement at k+1
-     */
-    void UpdateRadar(MeasurementPackage meas_package);
+    RadarProcessor radar_processor;
+    LidarProcessor lidar_processor;
 
     // initially set to false, set to true in first call of ProcessMeasurement
     bool is_initialized_;
@@ -73,15 +59,6 @@ class UKF {
 
     // augmented sigma-point matrix
     Eigen::MatrixXd Xsig_aug_;
-
-    // create matrix for sigma points in measurement space
-    Eigen::MatrixXd Zsig;
-
-    // mean predicted measurement
-    Eigen::VectorXd z_pred;
-
-    // measurement covariance matrix S
-    Eigen::MatrixXd S;
 
     // Weights of sigma points
     Eigen::VectorXd weights_;
@@ -102,16 +79,6 @@ class UKF {
     double std_laspy_;
 
     // Radar measurement dimention
-    int n_z_;
-
-    // Radar measurement noise standard deviation radius in m
-    double std_radr_;
-
-    // Radar measurement noise standard deviation angle in rad
-    double std_radphi_;
-
-    // Radar measurement noise standard deviation radius change in m/s
-    double std_radrd_ ;
 
     // State dimension
     int n_x_;
@@ -123,7 +90,6 @@ class UKF {
     double lambda_;
 
     long long previous_timestamp_;
-
 };
 
 #endif  // UKF_H

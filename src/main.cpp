@@ -115,10 +115,11 @@ int main() {
 
           VectorXd estimate(4);
 
-          double p_x = ukf.x_(0);
-          double p_y = ukf.x_(1);
-          double v   = ukf.x_(2);
-          double yaw = ukf.x_(3);
+          double p_x = ukf.object_state.x_(0);
+          double p_y = ukf.object_state.x_(1);
+          double v   = ukf.object_state.x_(2);
+          double yaw = ukf.object_state.x_(3);
+          std::cout << p_x << ", "<< p_y<< ", "<<v<< ", "<<yaw<< ", "<<ukf.object_state.x_(4) << std::endl;
 
           double v1 = cos(yaw)*v;
           double v2 = sin(yaw)*v;
